@@ -1,0 +1,1133 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Breathe – air quality and the tree</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --glass:rgba(14,26,26,.40);
+  --glassP:rgba(14,26,26,.58);
+  --edge:rgba(255,255,255,.42);
+  --txt:#fff;
+  --soft:rgba(255,255,255,.78);
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0;overflow:hidden;background:#5b8fa8}
+body{font-family:'Manrope',system-ui,sans-serif;color:var(--txt);line-height:1.5}
+button{font:inherit;color:inherit;cursor:pointer}
+:focus-visible{outline:3px solid #fff;outline-offset:3px}
+
+/* world */
+#world{position:fixed;inset:0}
+#scene{position:absolute;inset:0;width:100%;height:100%;display:block}
+#fog{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+
+/* glass */
+.glass{
+  position:fixed;z-index:10;
+  background:linear-gradient(135deg,rgba(255,255,255,.20),rgba(255,255,255,0) 42%),var(--glass);
+  -webkit-backdrop-filter:blur(12px) saturate(140%);backdrop-filter:blur(12px) saturate(140%);
+  border:1px solid var(--edge);
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.55),inset 0 -14px 24px rgba(255,255,255,.04),0 14px 40px rgba(0,0,0,.28);
+  text-shadow:0 1px 2px rgba(0,0,0,.35);
+}
+body.lite .glass{-webkit-backdrop-filter:none;backdrop-filter:none;background:rgba(14,26,26,.62)}
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){.glass{background:rgba(14,26,26,.62)}}
+
+/* search */
+.search{top:18px;left:50%;transform:translateX(-50%);width:min(560px,calc(100vw - 28px));border-radius:999px}
+.search input{width:100%;background:transparent;border:0;color:#fff;font:inherit;font-size:1.02rem;padding:15px 22px 15px 54px;border-radius:999px;text-shadow:inherit}
+.search input::placeholder{color:var(--soft)}
+.search input:focus-visible{outline-offset:-3px}
+.search .mag{position:absolute;left:21px;top:50%;transform:translateY(-50%);pointer-events:none}
+.results{list-style:none;margin:0;padding:8px;position:absolute;top:calc(100% + 10px);left:0;right:0;border-radius:26px;
+  background:var(--glassP);border:1px solid var(--edge);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px);
+  box-shadow:0 18px 44px rgba(0,0,0,.35);max-height:min(360px,60vh);overflow:auto;display:none}
+.results.show{display:block}
+.results button{width:100%;text-align:left;background:none;border:0;border-radius:16px;padding:10px 14px;display:flex;justify-content:space-between;gap:12px}
+.results button:hover,.results button.active{background:rgba(255,255,255,.16)}
+.results small{color:var(--soft);white-space:nowrap}
+.results .empty{padding:10px 14px;color:var(--soft)}
+
+/* status chip */
+.chip{bottom:22px;left:50%;transform:translateX(-50%);border-radius:34px;padding:12px 26px 12px 22px;display:flex;align-items:center;gap:18px;max-width:calc(100vw - 28px)}
+.num{font-size:3.2rem;font-weight:800;line-height:1;letter-spacing:-.02em;min-width:2ch;text-align:center}
+.meta{min-width:0}
+.place{font-weight:800;font-size:1.02rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:min(300px,52vw)}
+.pill{display:inline-block;padding:2px 12px;border-radius:999px;font-weight:800;font-size:.84rem;text-shadow:none;margin-right:8px}
+.small{font-size:.86rem;color:var(--soft);max-width:340px}
+.small.err{color:#ffd0cc;font-weight:800}
+.mini{border:1px solid var(--edge);background:rgba(255,255,255,.14);border-radius:999px;padding:5px 14px;font-weight:800;font-size:.86rem}
+.mini:hover{background:rgba(255,255,255,.28)}
+.mini[hidden]{display:none}
+.hint{position:fixed;z-index:9;left:50%;transform:translateX(-50%);bottom:10px;font-size:.82rem;color:#fff;opacity:.85;text-shadow:0 1px 3px rgba(0,0,0,.6);pointer-events:none;white-space:nowrap}
+.hint[hidden]{display:none}
+
+/* launchers */
+.launch{top:50%;transform:translateY(-50%);border-radius:999px;padding:14px 22px 14px 16px;display:flex;align-items:center;gap:10px;font-weight:800}
+.launch.left{left:18px}
+.launch.right{right:18px}
+.launch:hover{background:linear-gradient(135deg,rgba(255,255,255,.3),rgba(255,255,255,.05) 50%),var(--glass)}
+
+/* panels */
+.panel{top:92px;bottom:92px;width:min(390px,calc(100vw - 36px));border-radius:32px;padding:20px 20px 16px;display:flex;flex-direction:column;
+  background:linear-gradient(135deg,rgba(255,255,255,.18),rgba(255,255,255,0) 40%),var(--glassP);
+  opacity:0;visibility:hidden;transform:scale(.96);transition:opacity .22s,transform .22s,visibility .22s}
+.panel.left{left:18px;transform-origin:left center}
+.panel.right{right:18px;transform-origin:right center}
+.panel.open{opacity:1;visibility:visible;transform:scale(1)}
+.phead{display:flex;align-items:center;gap:8px;margin-bottom:12px}
+.phead h2{margin:0;font-size:1.18rem;font-weight:800;flex:1}
+.icon{width:34px;height:34px;border-radius:50%;border:1px solid var(--edge);background:rgba(255,255,255,.12);display:grid;place-items:center;padding:0}
+.icon:hover{background:rgba(255,255,255,.26)}
+.icon[hidden]{display:none}
+.pbody{overflow:auto;flex:1;padding-right:4px;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.4) transparent}
+.tabs{display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap}
+.tabs button,.chipbtn{border:1px solid var(--edge);background:rgba(255,255,255,.10);border-radius:999px;padding:6px 14px;font-weight:600;font-size:.9rem}
+.tabs button[aria-selected=true],.chipbtn[aria-pressed=true]{background:#fff;color:#12201f;text-shadow:none;font-weight:800}
+.note{font-size:.88rem;color:var(--soft);margin:0 0 12px}
+.item{display:flex;gap:14px;align-items:center;padding:12px 0;border-top:1px solid rgba(255,255,255,.18)}
+.item:first-of-type{border-top:0}
+.thumb{flex:none;width:100px;height:92px;border-radius:20px;overflow:hidden;border:1px solid rgba(255,255,255,.4);box-shadow:0 6px 16px rgba(0,0,0,.25);background:#efe4d0}
+.thumb img{width:100%;height:100%;object-fit:cover;display:block}
+.item b{display:block;font-size:1rem}
+.item em{font-style:normal;font-size:.8rem;color:var(--soft);display:block}
+.item p{margin:2px 0 0;font-size:.9rem;line-height:1.4}
+.menu button{width:100%;text-align:left;background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.22);border-radius:20px;padding:12px 16px;margin-bottom:10px;display:block}
+.menu button:hover{background:rgba(255,255,255,.2)}
+.menu b{display:block}
+.menu span{font-size:.86rem;color:var(--soft)}
+.tips{margin:12px 0 0;padding-left:1.15em}
+.tips li{margin:8px 0}
+.adhead{display:flex;align-items:center;gap:10px;margin-top:14px;font-weight:800}
+.dot{width:12px;height:12px;border-radius:50%}
+.bars{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;align-items:end;height:210px;padding-top:22px}
+.bar{display:flex;flex-direction:column;justify-content:flex-end;align-items:center;height:100%;text-align:center}
+.bar .v{font-weight:800;font-size:.86rem;margin-bottom:3px}
+.bar .col{width:100%;border-radius:10px 10px 3px 3px}
+.bar .col.fc{background-image:repeating-linear-gradient(135deg,rgba(255,255,255,.4) 0 5px,transparent 5px 10px)}
+.bar .l{font-size:.72rem;color:var(--soft);margin-top:5px;line-height:1.25}
+.bar.today .l{color:#fff;font-weight:800}
+.polls{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.poll{border:1px solid rgba(255,255,255,.25);border-radius:18px;padding:10px 14px;background:rgba(255,255,255,.07)}
+.poll.main{border-color:#fff;background:rgba(255,255,255,.2)}
+.poll span{font-size:.84rem;color:var(--soft)}
+.poll b{display:block;font-size:1.5rem;line-height:1.2}
+.poll em{font-style:normal;font-size:.75rem;font-weight:800}
+.slider{display:flex;align-items:center;gap:12px;margin-top:6px}
+.slider input{flex:1;accent-color:#fff}
+.slider output{font-weight:800;font-size:1.3rem;min-width:3ch;text-align:right}
+.fine{font-size:.8rem;color:var(--soft);margin-top:12px}
+
+/* scene animation: slow and quiet */
+.drift{animation:drift 70s ease-in-out infinite alternate}
+.fall{animation:fall 11s linear infinite}
+.bird{animation:fly 55s linear infinite}
+.ray{animation:ray 9s ease-in-out infinite alternate}
+.sunbreath{animation:ray 10s ease-in-out infinite alternate}
+.treesway{}
+.crown{}
+.kid{transform-origin:0 0;animation:breathe 5s ease-in-out infinite}
+.kid.play{animation:catch 2.4s ease-in-out infinite}
+.bx{animation:bx 1.2s linear infinite alternate}
+.kid.jump{animation:jump 1.1s ease-in-out infinite}
+.kite{transform-origin:905px 238px;animation:kite 5s ease-in-out infinite alternate}
+.mote{animation:mote 13s ease-in-out infinite}
+.by{animation:by 1.2s infinite}
+.blink{transform-origin:500px 408px;animation:blink 7s infinite}
+.tear{animation:tear 6s ease-in infinite}
+@keyframes drift{from{transform:translateX(-70px)}to{transform:translateX(70px)}}
+@keyframes fall{0%{transform:translate(0,0) rotate(0);opacity:0}8%{opacity:.9}90%{opacity:.8}100%{transform:translate(50px,270px) rotate(200deg);opacity:0}}
+@keyframes fly{from{transform:translateX(-120px)}to{transform:translateX(1120px)}}
+@keyframes ray{from{opacity:.45}to{opacity:1}}
+@keyframes treesway{from{transform:rotate(-.25deg)}to{transform:rotate(.25deg)}}
+@keyframes crown{from{transform:rotate(-.6deg)}to{transform:rotate(.6deg)}}
+@keyframes breathe{0%,100%{transform:translateY(0)}50%{transform:translateY(-1.6px)}}
+@keyframes catch{0%,88%,100%{transform:translateY(0)}95%{transform:translateY(-7px)}}
+@keyframes bx{from{transform:translateX(0)}to{transform:translateX(72px)}}
+@keyframes by{0%{transform:translateY(0);animation-timing-function:cubic-bezier(.25,.6,.5,1)}50%{transform:translateY(-50px);animation-timing-function:cubic-bezier(.5,0,.75,.4)}100%{transform:translateY(0)}}
+@keyframes jump{0%,100%{transform:translateY(0)}45%{transform:translateY(-13px)}}
+@keyframes kite{from{transform:rotate(-5deg)}to{transform:rotate(5deg)}}
+@keyframes mote{0%{transform:translate(0,0);opacity:0}20%{opacity:.9}100%{transform:translate(28px,-90px);opacity:0}}
+@keyframes blink{0%,93%,100%{transform:scaleY(1)}96%{transform:scaleY(.08)}}
+@keyframes tear{0%{transform:translateY(0);opacity:0}15%{opacity:.85}100%{transform:translateY(24px);opacity:0}}
+body.lite .drift,body.lite .bird,body.lite .ray,body.lite .crown{}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+
+/* small screens */
+@media (max-width:820px){
+  .chip{bottom:auto;top:78px;padding:10px 18px 10px 16px;gap:12px}
+  .num{font-size:2.4rem}
+  .hint{display:none}
+  .launch{top:auto;bottom:16px;transform:none;width:54px;height:54px;padding:0;justify-content:center}
+  .launch span{display:none}
+  .launch.left{left:16px}.launch.right{right:16px}
+  .panel{left:14px!important;right:14px!important;width:auto;top:auto;bottom:84px;max-height:62vh}
+}
+</style>
+</head>
+<body>
+
+<div id="world">
+  <svg id="scene" viewBox="0 0 1000 600" preserveAspectRatio="xMidYMax slice" role="img" aria-label="A tree, children and elders, reacting to the air quality"></svg>
+  <canvas id="fog"></canvas>
+</div>
+
+<!-- search -->
+<div class="glass search" id="searchbox">
+  <svg class="mag" width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="8.5" cy="8.5" r="6"/><path d="M13 13l5 5"/></svg>
+  <input id="q" type="search" placeholder="Search a city, state or country" autocomplete="off" role="combobox" aria-expanded="false" aria-controls="results" aria-label="Search a place">
+  <ul class="results" id="results" role="listbox"></ul>
+</div>
+
+<!-- status -->
+<div class="glass chip" id="chip">
+  <div class="num" id="aqinum">–</div>
+  <div class="meta">
+    <div class="place" id="place">Loading…</div>
+    <div><span class="pill" id="cat">–</span><span id="mainpoll"></span></div>
+    <div class="small" id="msg"></div>
+  </div>
+  <button class="mini" id="live" hidden>Back to live</button>
+</div>
+<div class="hint" id="hint">Move your mouse and the wind follows it.</div>
+
+<!-- left: plants and protection -->
+<button class="glass launch left" id="lbtn" aria-expanded="false" aria-controls="lpanel">
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21v-8"/><path d="M12 13C12 8 8 5 3 5c0 5 3 8 9 8z"/><path d="M12 15c0-4 3-7 9-7 0 5-3 7-9 7z"/></svg>
+  <span>Plants &amp; protection</span>
+</button>
+<aside class="glass panel left" id="lpanel" aria-label="Plants and protection">
+  <div class="phead"><h2>Plants &amp; protection</h2><button class="icon" data-close="l" aria-label="Close"><svg width="14" height="14" viewBox="0 0 14 14" stroke="#fff" stroke-width="2" stroke-linecap="round"><path d="M2 2l10 10M12 2L2 12"/></svg></button></div>
+  <div class="tabs" role="tablist" id="ltabs"></div>
+  <div class="pbody" id="lbody"></div>
+</aside>
+
+<!-- right: options -->
+<button class="glass launch right" id="rbtn" aria-expanded="false" aria-controls="rpanel">
+  <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><path d="M4 7h10M18 7h2M4 17h2M10 17h10"/><circle cx="16" cy="7" r="2"/><circle cx="8" cy="17" r="2"/></svg>
+  <span>Options</span>
+</button>
+<aside class="glass panel right" id="rpanel" aria-label="Options">
+  <div class="phead">
+    <button class="icon" id="rback" hidden aria-label="Back to options"><svg width="14" height="14" viewBox="0 0 14 14" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 2L4 7l5 5"/></svg></button>
+    <h2 id="rtitle">Options</h2>
+    <button class="icon" data-close="r" aria-label="Close"><svg width="14" height="14" viewBox="0 0 14 14" stroke="#fff" stroke-width="2" stroke-linecap="round"><path d="M2 2l10 10M12 2L2 12"/></svg></button>
+  </div>
+  <div class="pbody" id="rbody"></div>
+</aside>
+
+<script>
+/* ================= helpers ================= */
+const $ = id => document.getElementById(id);
+const clamp = (x,a,b) => Math.min(b,Math.max(a,x));
+const lerp = (a,b,t) => a+(b-a)*t;
+const hex2rgb = h => { h=h.replace('#',''); return [0,2,4].map(i=>parseInt(h.substr(i,2),16)); };
+const mix = (c1,c2,t) => { const a=hex2rgb(c1), b=hex2rgb(c2); return '#'+a.map((v,i)=>Math.round(lerp(v,b[i],t)).toString(16).padStart(2,'0')).join(''); };
+const rgba = (c,al) => { const [r,g,b]=hex2rgb(c); return `rgba(${r},${g},${b},${al})`; };
+function ramp(stops,x){
+  if(x<=stops[0][0]) return stops[0][1];
+  for(let i=1;i<stops.length;i++){
+    if(x<=stops[i][0]){ const [x0,c0]=stops[i-1],[x1,c1]=stops[i]; return mix(c0,c1,(x-x0)/(x1-x0)); }
+  }
+  return stops[stops.length-1][1];
+}
+const esc = s => String(s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+/* ================= levels + advice ================= */
+const LEVELS = [
+  {max:50,  name:'Good',                           color:'#2e9e4f', ink:'#fff',    mood:'Clean air. The tree looks well and the children are out playing.'},
+  {max:100, name:'Moderate',                       color:'#e2b000', ink:'#2b2300', mood:'Acceptable air. The tree is holding on.'},
+  {max:150, name:'Unhealthy for sensitive groups', color:'#ef7d00', ink:'#fff',    mood:'The air is getting heavy. The children put on masks.'},
+  {max:200, name:'Unhealthy',                      color:'#d1342f', ink:'#fff',    mood:'The tree is shedding leaves and looks worn out.'},
+  {max:300, name:'Very unhealthy',                 color:'#7b3fa0', ink:'#fff',    mood:'The tree is nearly bare. Everyone is better off indoors.'},
+  {max:Infinity,name:'Hazardous',                  color:'#6d1b2e', ink:'#fff',    mood:'A dry, grey tree under thick smog. Stay inside.'}
+];
+const levelOf = a => LEVELS.findIndex(l=>a<=l.max);
+
+const TYPES = [
+  {id:'adult',  label:'Adult'},
+  {id:'child',  label:'Child'},
+  {id:'elderly',label:'Elderly'},
+  {id:'worker', label:'Outdoor worker or athlete'},
+  {id:'breath', label:'Breathing problems'}
+];
+const ADVICE = {
+  adult:[
+    ['Great day to be outside.','Open the windows and enjoy outdoor exercise.'],
+    ['Outdoor activity is fine for most people.','If your throat feels irritated or you cough, take it easier.'],
+    ['Shorten long or hard outdoor workouts.','Keep windows closed near busy roads and carry a mask.'],
+    ['Skip outdoor exercise and work out indoors.','Wear a well-fitting N95/FFP2 mask outside and use an air purifier if you have one.'],
+    ['Stay indoors with windows closed as much as you can.','Wear an N95/FFP2 mask for any essential trip outside.']
+  ],
+  child:[
+    ['Perfect for playing outside, school sports included.','Let them run around.'],
+    ['Normal play is fine.','Watch for coughing or tiredness in children who fall sick often.'],
+    ['Keep outdoor play short and gentle.','Use a small, snug-fitting mask on busy roads.'],
+    ['Skip outdoor play and PE. Do activities indoors.','Use a child-size mask for the trip to school.'],
+    ['Keep children indoors with the windows shut.','Ask the school to move activities inside.']
+  ],
+  elderly:[
+    ['A gentle walk outside is a good idea.','Drink water and enjoy the fresh air.'],
+    ['Light outdoor activity is fine.','Take breaks and stop if breathing feels harder than usual.'],
+    ['Limit time outdoors, especially near traffic.','Wear a mask when you step out and keep regular medicines handy.'],
+    ['Stay indoors and skip walks outside.','Keep windows closed and ask someone to run errands for you.'],
+    ['Stay in the cleanest room of the house.','Call a doctor if you feel chest tightness or unusual breathlessness.']
+  ],
+  worker:[
+    ['Train and work outdoors as normal.','A good day for long endurance sessions.'],
+    ['Normal work and training are fine.','Lower the intensity if your throat feels irritated.'],
+    ['Cut back on hard exertion and take more breaks.','Wear a mask for dusty or high-traffic work.'],
+    ['Move training indoors and avoid hard exertion outside.','Outdoor workers: wear an N95/FFP2 mask and rotate to indoor tasks when possible.'],
+    ['Stop outdoor training. Work outside only if essential.','Use a properly fitted N95/FFP2 mask and take frequent breaks indoors.']
+  ],
+  breath:[
+    ['Air is fine today. Carry your inhaler as usual.','Outdoor activity is okay.'],
+    ['Carry your inhaler and watch for symptoms.','Avoid exercising near heavy traffic.'],
+    ['Limit time outdoors and avoid exercise outside.','Keep your reliever medicine close and follow your doctor’s action plan.'],
+    ['Stay indoors with windows closed.','If you must go out, wear an N95/FFP2 mask and follow your action plan.'],
+    ['Stay indoors and use a purifier if you have one.','Get medical help quickly if symptoms get worse.']
+  ]
+};
+
+/* ================= plants + protection content ================= */
+const HOUSE = [
+  {k:'snake', n:'Snake plant',t:'Low light · very easy',d:'Survives neglect and dim corners. A good bedroom or office plant.'},
+  {k:'spider',n:'Spider plant',t:'Easy · pet-safe',d:'Fast growing and safe for cats and dogs. Hang it near a bright window.'},
+  {k:'areca', n:'Areca palm',t:'Bright indirect light',d:'Fills a corner with soft green fronds. Keep the soil lightly moist.'},
+  {k:'pothos',n:'Money plant (pothos)',t:'Easy · grows in water',d:'Trails from a shelf or a bottle. Toxic to pets if chewed.'},
+  {k:'peace', n:'Peace lily',t:'Shade-friendly',d:'Flowers in low light and droops when thirsty. Toxic to pets if chewed.'},
+  {k:'rubber',n:'Rubber plant',t:'Bright light',d:'Large leaves collect dust. Wipe them with a damp cloth every week or two.'},
+  {k:'aloe',  n:'Aloe vera',t:'Sunny window',d:'Needs little water. The gel soothes minor burns.'},
+  {k:'boston',n:'Boston fern',t:'Humid spots',d:'Likes a bathroom or kitchen window with steady moisture.'}
+];
+const BALCONY = [
+  {k:'tulsi',  n:'Tulsi (holy basil)',t:'4–6 hours of sun',d:'Hardy, fragrant and easy to keep in a pot all year.'},
+  {k:'palm',   n:'Areca or bamboo palm',t:'Bright shade to sun',d:'Tall and leafy. Works as a green screen along the railing.'},
+  {k:'ficus',  n:'Rubber plant or ficus',t:'Tough · bright light',d:'Thick leaves handle dust and wind better than delicate plants.'},
+  {k:'jasmine',n:'Jasmine (mogra, chameli)',t:'Full sun',d:'Flowers and scent. Train it up a trellis.'},
+  {k:'bougain',n:'Bougainvillea',t:'Full sun · hardy',d:'Dense and thorny. Thrives in heat and needs little water once settled.'},
+  {k:'climber',n:'Money plant climber',t:'Easy · part shade',d:'Trails along the railing and fills gaps between pots.'},
+  {k:'lemon',  n:'Lemongrass',t:'Full sun',d:'Fast growing with a fresh lemony scent. The leaves make a good tea.'},
+  {k:'ferns',  n:'Ferns',t:'Shaded balcony',d:'Soft texture for corners that get little direct sun.'}
+];
+const PROTECT = [
+  {h:'Check before you go',d:'Look at today’s AQI and the next three days before planning walks, runs or school pickups.'},
+  {h:'Wear the right mask',d:'An N95, FFP2 or KN95 that fits snugly over nose and chin filters fine particles. Cloth and loose surgical masks do little against PM2.5. Facial hair can break the seal.'},
+  {h:'Close up when it is bad',d:'Keep windows and doors shut when the AQI is high. Open them briefly when the reading drops.'},
+  {h:'Clean the indoor air',d:'A HEPA purifier sized for the room helps. Replace the filters on schedule.'},
+  {h:'Move exercise indoors',d:'When the AQI is above about 150, skip outdoor runs and cycling, especially near traffic.'},
+  {h:'Keep indoor air clear',d:'Wet-mop or damp-wipe instead of dry sweeping. Use the kitchen exhaust when cooking. Avoid incense, mosquito coils and indoor smoke.'},
+  {h:'After you come home',d:'Wash your face and hands and change clothes so you do not carry dust around the house.'},
+  {h:'Know when to get help',d:'See a doctor for chest pain, severe breathlessness, or wheezing that does not settle.'}
+];
+let lTab = 'house';
+
+/* ---- little plant illustrations (drawn in code, so they always load) ---- */
+const lf = (x,y,l,w,ang,fill,stroke)=>`<path transform="translate(${x} ${y}) rotate(${ang})" d="M0 0Q${w} ${-l*.45} 0 ${-l}Q${-w} ${-l*.45} 0 0Z" fill="${fill}"${stroke?` stroke="${stroke}" stroke-width="1.1"`:''}/>`;
+const pot = c => `<ellipse cx="60" cy="96" rx="27" ry="3" fill="#000" opacity=".18"/><path d="M40 70h40l-5 26H45z" fill="${c}"/><rect x="37" y="66" width="46" height="8" rx="3" fill="${mix(c,'#ffffff',.18)}"/><ellipse cx="60" cy="67" rx="21" ry="3" fill="#4a3526"/>`;
+const frond = (cx,cy,ex,ey,w,col)=>`<path d="M60 67Q${cx} ${cy} ${ex} ${ey}" fill="none" stroke="${mix(col,'#000000',.3)}" stroke-width="1.4"/><path d="M60 67Q${cx} ${cy} ${ex} ${ey}" fill="none" stroke="${col}" stroke-width="${w}" stroke-dasharray="1.6 2"/>`;
+const bloom = (x,y,c,r=2.6)=>[0,1,2,3,4].map(i=>`<circle cx="${f1(x+Math.cos(i*1.257)*r*1.15)}" cy="${f1(y+Math.sin(i*1.257)*r*1.15)}" r="${r}" fill="${c}"/>`).join('')+`<circle cx="${x}" cy="${y}" r="1.5" fill="#f2c94c"/>`;
+const heart = (list,cols)=>list.map(([x,y,a],i)=>lf(x,y,12,7,a,cols[i%cols.length])).join('');
+function fan(n,span,len,w,col){
+  let s=''; for(let i=0;i<n;i++){ const a=(-span+2*span*i/(n-1))*Math.PI/180, sn=Math.sin(a), cs=Math.cos(a);
+    s+=frond(60+sn*len*.38,67-cs*len*1.05,60+sn*len,67-cs*len*.9+(Math.abs(a)>.9?16:0),w,col); }
+  return s;
+}
+const ART = {
+  snake:()=>pot('#c0653d')+[[-14,56,7],[8,62,7.5],[-3,50,6.5],[-27,38,6],[23,42,6.5],[2,66,6]].map(([a,l,w],i)=>lf(60+a*.3,67,l,w,a,i%2?'#2f6e3b':'#285f33','#c9d36a')).join(''),
+  spider:()=>{
+    let s=pot('#d8d1c2');
+    [[-30,-36,-54,8],[-18,-46,-38,14],[-6,-50,-16,18],[6,-50,16,18],[18,-46,38,14],[30,-36,54,8]].forEach(([cx,cy,ex,ey])=>{
+      const d=`M60 67Q${60+cx} ${67+cy} ${60+ex} ${67+ey}`;
+      s+=`<path d="${d}" fill="none" stroke="#4f9a45" stroke-width="5.5" stroke-linecap="round"/><path d="${d}" fill="none" stroke="#e9f0cf" stroke-width="1.6" stroke-linecap="round"/>`;
+    });
+    return s+`<path d="M60 70Q40 84 30 90" stroke="#6bb05a" stroke-width="1.2" fill="none"/><circle cx="29" cy="91" r="4" fill="#6bb05a"/>`;
+  },
+  areca:()=>pot('#a8683f')+[[-34,-50,-50,-16],[34,-50,50,-16],[-14,-72,-30,-52],[14,-72,30,-52],[0,-80,0,-64]].map(([cx,cy,ex,ey])=>frond(60+cx,67+cy,60+ex,67+ey,9,'#3f8a47')).join(''),
+  palm:()=>pot('#3d3d46')+[[-36,-54,-52,-20],[36,-54,52,-20],[-16,-78,-34,-58],[16,-78,34,-58],[0,-84,0,-66],[-6,-70,-12,-40]].map(([cx,cy,ex,ey])=>frond(60+cx,67+cy,60+ex,67+ey,9.5,'#2f7a46')).join(''),
+  pothos:()=>{
+    let s=pot('#d9a441');
+    ['M54 66C40 66 28 74 26 92','M66 66C80 68 92 76 94 94','M58 66C56 52 62 40 72 30'].forEach(d=>s+=`<path d="${d}" fill="none" stroke="#3d7a34" stroke-width="2"/>`);
+    return s+heart([[40,67,-100],[32,74,-130],[27,84,-170],[26,92,180],[78,69,100],[88,75,130],[93,86,170],[94,94,180],[60,56,-40],[58,46,-30],[64,38,20],[72,30,40],[50,64,-60],[68,64,60]],['#4f9a3f','#7cc15a']);
+  },
+  peace:()=>{
+    let s=pot('#e7e2d8');
+    [[-50,34,11],[50,34,11],[-24,44,12],[24,44,12],[-72,28,10],[72,28,10],[0,38,11]].forEach(([a,l,w])=>s+=lf(60,67,l,w,a,'#1f5a35','#3f8a55'));
+    s+=`<path d="M60 67L66 32M58 67L50 38" stroke="#2f6a3f" stroke-width="1.8" fill="none"/>`;
+    return s+lf(66,34,22,5.5,8,'#f8f7ef')+lf(50,40,18,5,-10,'#f8f7ef')+`<path d="M66 30L67 22M50 36L49 29" stroke="#e8d36a" stroke-width="2.2" stroke-linecap="round"/>`;
+  },
+  rubber:()=>pot('#6b6f78')+`<path d="M60 67V14" stroke="#6b4b36" stroke-width="3.2"/>`+[[60,-62],[52,64],[40,-58],[32,60],[22,-50],[14,0]].map(([y,a],i)=>lf(60,y,30-i*1.5,13-i*.6,a,'#2b5b34','#5a9a68')).join(''),
+  ficus:()=>pot('#3f4a58')+`<path d="M60 67V14" stroke="#6b4b36" stroke-width="3.2"/>`+[[60,-62],[52,64],[40,-58],[32,60],[22,-50],[14,0]].map(([y,a],i)=>lf(60,y,30-i*1.5,13-i*.6,a,'#4d8a3a','#8fc27a')).join(''),
+  aloe:()=>{
+    let s=pot('#c9703f'); const r=pr(7);
+    [[-72,30],[-50,36],[-30,40],[-10,44],[10,44],[30,40],[50,36],[72,30]].forEach(([a,l])=>{
+      s+=lf(60,68,l,7.5,a,'#6fa66b','#9fcf94');
+      s+=`<circle cx="${f1(60+Math.sin(a*Math.PI/180)*l*.55)}" cy="${f1(68-Math.cos(a*Math.PI/180)*l*.55)}" r="1.1" fill="#d7ecce"/>`;
+    });
+    return s;
+  },
+  boston:()=>pot('#a8683f')+fan(9,78,48,10,'#3f8f3c'),
+  ferns:()=>pot('#6e7f5a')+fan(11,84,52,10,'#4a9a45'),
+  tulsi:()=>{
+    let s=pot('#bb6a44'); const r=pr(5);
+    s+=`<path d="M60 67L52 38M60 67L70 34M60 67L60 44" stroke="#6b4b36" stroke-width="1.6" fill="none"/>`;
+    for(let i=0;i<46;i++){
+      const x=60+(r()-.5)*58, y=48+(r()-.5)*36, c=i%9===0?'#6d5a82':(i%2?'#4b8c3b':'#6aa84a');
+      s+=lf(f1(x),f1(y+8),11,5.5,Math.round(r()*360),c);
+    }
+    s+=`<path d="M52 34L50 14M71 32L75 12" stroke="#5b3f7a" stroke-width="1.6"/>`;
+    [14,19,24,29].forEach((y,i)=>s+=`<circle cx="${50+(i%2?2:-2)}" cy="${y}" r="2.3" fill="#b79ad6"/>`);
+    [12,17,22,27].forEach((y,i)=>s+=`<circle cx="${75+(i%2?-2:2)}" cy="${y-1}" r="2.3" fill="#b79ad6"/>`);
+    return s;
+  },
+  jasmine:()=>{
+    let s=pot('#3f6f8f');
+    s+=`<g stroke="#8a6a45" stroke-width="1.6" fill="none"><path d="M40 66V14M60 66V10M80 66V14M34 26H86M34 42H86M34 58H86"/></g>`;
+    s+=`<path d="M52 66C44 50 70 46 56 34C48 26 66 20 62 12" fill="none" stroke="#3f7a3a" stroke-width="2.4"/>`;
+    [[48,52,-60],[62,44,70],[54,34,-70],[66,26,60],[58,18,-40],[46,40,-80],[70,54,80]].forEach(([x,y,a])=>s+=lf(x,y,10,4.5,a,'#4f9a3f'));
+    [[48,52],[62,44],[54,34],[66,26],[58,16],[46,38],[72,52]].forEach(([x,y])=>s+=bloom(x,y,'#ffffff',2.4));
+    return s;
+  },
+  bougain:()=>{
+    let s=pot('#b8643c');
+    s+=`<path d="M56 67C50 50 56 36 70 22M62 67C70 52 66 38 54 26" fill="none" stroke="#6b4b36" stroke-width="2.4"/>`;
+    [[56,52,-60],[60,40,60],[66,30,-50],[56,30,70],[64,56,80],[50,44,-80]].forEach(([x,y,a])=>s+=lf(x,y,10,4.5,a,'#4f8a3f'));
+    [[70,24],[56,28],[66,40],[48,48],[74,52],[60,16]].forEach(([x,y],i)=>{
+      for(let k=0;k<4;k++) s+=`<rect x="${f1(x-3+Math.cos(k*1.6)*4)}" y="${f1(y-3+Math.sin(k*1.6)*4)}" width="7" height="7" rx="3" transform="rotate(${k*25+i*13} ${x} ${y})" fill="${['#d6247f','#ee4a9b','#c01c70','#e23890'][k]}"/>`;
+    });
+    return s;
+  },
+  climber:()=>{
+    let s=pot('#4a7f8a');
+    s+=`<path d="M64 67V6" stroke="#a58b66" stroke-width="3"/><path d="M62 28h4M62 46h4" stroke="#7a6446" stroke-width="1.4"/>`;
+    s+=`<path d="M56 67C70 58 52 48 66 40C74 34 56 26 66 16" fill="none" stroke="#3d7a34" stroke-width="2.2"/>`;
+    return s+heart([[60,62,-70],[68,54,70],[56,48,-80],[70,40,80],[58,32,-70],[68,24,70],[62,16,-30],[66,10,20],[52,60,-100],[74,48,110]],['#4f9a3f','#7cc15a']);
+  },
+  lemon:()=>{
+    let s=pot('#a8683f');
+    for(let i=0;i<17;i++){
+      const a=(-72+144*i/16)*Math.PI/180, sn=Math.sin(a), cs=Math.cos(a), x0=60+(i%3-1)*4;
+      s+=`<path d="M${x0} 67Q${f1(60+sn*20)} ${f1(67-cs*50)} ${f1(60+sn*46)} ${f1(67-cs*34+(Math.abs(a)>.6?15:0))}" fill="none" stroke="${['#9cc24d','#7fa83a','#b5d067'][i%3]}" stroke-width="2.6" stroke-linecap="round"/>`;
+    }
+    return s;
+  }
+};
+function plantSVG(k,kind){
+  const bg = kind==='house'
+    ? `<rect width="120" height="100" fill="#efe4d0"/><path d="M12 6h46l-6 54H8z" fill="#fbf3dc"/><path d="M0 84h120v16H0z" fill="#c9ad86"/>`
+    : `<rect width="120" height="100" fill="#cfe6ee"/><circle cx="98" cy="18" r="9" fill="#fff3c0"/><path d="M0 80h120v20H0z" fill="#b9a78c"/><path d="M0 79h120" stroke="#6d5a43" stroke-width="3"/>`;
+  return `<svg viewBox="0 0 120 100" width="100%" height="100%" preserveAspectRatio="xMidYMid slice" aria-hidden="true">${bg}${ART[k]()}</svg>`;
+}
+const pr = (s=>()=>(s=(s*16807)%2147483647)/2147483647);
+
+function renderLeft(){
+  const tabs = [['house','House plants'],['balcony','Balcony'],['protect','Protect yourself']];
+  $('ltabs').innerHTML = tabs.map(t=>`<button role="tab" data-t="${t[0]}" aria-selected="${t[0]===lTab}">${t[1]}</button>`).join('');
+  $('ltabs').querySelectorAll('button').forEach(b=>b.onclick=()=>{lTab=b.dataset.t;renderLeft();});
+  const plant = kind => x=>`<div class="item"><div class="thumb" data-k="${x.k}">${plantSVG(x.k,kind)}</div><div><b>${esc(x.n)}</b><em>${esc(x.t)}</em><p>${esc(x.d)}</p></div></div>`;
+  let h='';
+  if(lTab==='house'){
+    h = `<p class="note">Plants make a room feel better, but a few pots will not noticeably clean the air. The NASA study behind that claim used sealed lab chambers. Ventilate when the outdoor air is good, and use a HEPA purifier when it is not.</p>` + HOUSE.map(plant('house')).join('');
+  } else if(lTab==='balcony'){
+    h = `<p class="note">A dense row of leafy plants can catch some dust and soften the wind, but it will not stop smog. Think of it as a pleasant buffer, not a filter.</p>` + BALCONY.map(plant('balcony')).join('');
+  } else {
+    h = PROTECT.map(x=>`<div class="item"><div><b>${esc(x.h)}</b><p>${esc(x.d)}</p></div></div>`).join('') + `<p class="fine">General guidance only, not medical advice.</p>`;
+  }
+  if(lTab!=='protect') h += `<p class="fine">Pictures are illustrations. To use real photos, put image files in a folder named plants next to this file, named after the plant code: snake, spider, areca, pothos, peace, rubber, aloe, boston, tulsi, palm, ficus, jasmine, bougain, climber, lemon, ferns (for example plants/snake.jpg). They replace the drawings automatically.</p>`;
+  $('lbody').innerHTML = h;
+  $('lbody').scrollTop = 0;
+  $('lbody').querySelectorAll('.thumb').forEach(el=>{
+    const im = new Image(); im.alt='';
+    im.onload = ()=>{ el.innerHTML=''; el.appendChild(im); };
+    im.src = 'plants/'+el.dataset.k+'.jpg';
+  });
+}
+
+/* ================= scene ================= */
+const rnd = (s=>()=>(s=(s*16807)%2147483647)/2147483647)(31);
+const f1 = n => (Math.round(n*10)/10);
+
+/* tapered limbs: a smooth cubic curve turned into a filled shape that narrows along its length */
+function bez(p,t){
+  const u=1-t;
+  return [u*u*u*p[0][0]+3*u*u*t*p[1][0]+3*u*t*t*p[2][0]+t*t*t*p[3][0],
+          u*u*u*p[0][1]+3*u*u*t*p[1][1]+3*u*t*t*p[2][1]+t*t*t*p[3][1]];
+}
+function limb(p,w0,w1,wf){
+  const n=16, L=[], R=[];
+  for(let i=0;i<=n;i++){
+    const t=i/n, c=bez(p,t), a=bez(p,Math.min(1,t+.02)), b=bez(p,Math.max(0,t-.02));
+    let tx=a[0]-b[0], ty=a[1]-b[1]; const m=Math.hypot(tx,ty)||1; tx/=m; ty/=m;
+    const w=(wf?wf(t):lerp(w0,w1,t))/2;
+    L.push([c[0]-ty*w,c[1]+tx*w]); R.push([c[0]+ty*w,c[1]-tx*w]);
+  }
+  const pt = q=>f1(q[0])+' '+f1(q[1]);
+  return 'M'+L.map(pt).join('L')+'L'+R.reverse().map(pt).join('L')+'Z';
+}
+
+/* short, thick, gnarled trunk that flares into roots, like an old oak */
+const TP = [[500,540],[496,500],[504,430],[500,340]];
+const trunkW = t => lerp(164,110,Math.pow(t,.6)) + 40*Math.pow(1-t,6);
+const TRUNK_D = limb(TP,0,0,trunkW);
+const HILITE_D = limb([[466,538],[464,500],[470,440],[468,380]],0,0,t=>lerp(18,8,t));
+
+const LIMBS = [
+  {p:[[492,396],[450,362],[400,332],[330,300]],w:[38,9]},
+  {p:[[508,396],[550,362],[600,332],[670,300]],w:[38,9]},
+  {p:[[500,392],[492,330],[508,280],[500,215]],w:[34,7]},
+  {p:[[470,352],[440,312],[420,272],[395,226]],w:[18,4]},
+  {p:[[530,350],[560,310],[582,270],[606,225]],w:[18,4]},
+  {p:[[486,432],[440,446],[380,428],[338,334]],w:[26,5]},
+  {p:[[514,436],[560,450],[620,432],[662,336]],w:[24,5]},
+  {p:[[330,300],[310,288],[292,288],[272,300]],w:[8,2]},
+  {p:[[670,300],[690,288],[708,290],[728,302]],w:[8,2]},
+  {p:[[500,264],[478,238],[462,208],[448,174]],w:[10,3]},
+  {p:[[500,264],[522,238],[538,208],[552,174]],w:[10,3]}
+].map(l=>({p:l.p,d:limb(l.p,l.w[0],l.w[1])}));
+/* small side branches that run up into the foliage, so the low limbs look like real branches */
+const rb=(s=>()=>(s=(s*16807)%2147483647)/2147483647)(5);
+[5,6].forEach(idx=>{
+  const L=LIMBS[idx];
+  [.3,.52,.74].forEach(t=>{
+    const s0=bez(L.p,t), a=bez(L.p,Math.min(1,t+.03)), b=bez(L.p,Math.max(0,t-.03));
+    let tx=a[0]-b[0], ty=a[1]-b[1]; const m=Math.hypot(tx,ty)||1; tx/=m; ty/=m;
+    let dx=tx*.55, dy=ty*.55-.85; const dm=Math.hypot(dx,dy); dx/=dm; dy/=dm;
+    const len=38+rb()*22, wob=(rb()-.5)*14;
+    const q=[[s0[0],s0[1]],[s0[0]+dx*len*.33+wob*.4,s0[1]+dy*len*.33],[s0[0]+dx*len*.66+wob,s0[1]+dy*len*.66],[s0[0]+dx*len,s0[1]+dy*len]];
+    LIMBS.push({p:q,d:limb(q,9-(t-.3)*8,2.5)});
+  });
+});
+
+const TWIGS = [];
+LIMBS.forEach((l,i)=>{
+  if(i>10) return;
+  for(let k=0;k<3;k++){
+    const t=.4+.5*rnd(), c=bez(l.p,t), a=bez(l.p,Math.min(1,t+.03)), b=bez(l.p,Math.max(0,t-.03));
+    const ang=Math.atan2(a[1]-b[1],a[0]-b[0])+(k%2?1:-1)*(0.6+rnd()*.5), len=26+rnd()*30;
+    const ex=c[0]+Math.cos(ang)*len, ey=c[1]+Math.sin(ang)*len;
+    const cx=c[0]+Math.cos(ang+.35)*len*.55, cy=c[1]+Math.sin(ang+.35)*len*.55;
+    TWIGS.push(`M${f1(c[0])} ${f1(c[1])}Q${f1(cx)} ${f1(cy)} ${f1(ex)} ${f1(ey)}`);
+  }
+});
+
+const ROOTS = [
+  [[[462,526],[430,534],[402,542],[368,556]],38,5],
+  [[[480,532],[458,546],[438,558],[420,570]],18,4],
+  [[[538,526],[570,534],[598,542],[632,556]],38,5],
+  [[[520,532],[542,546],[562,558],[580,570]],18,4]
+].map(r=>limb(r[0],r[1],r[2]));
+
+/* bark: just a few soft ridges on the sides, nothing across the face */
+const BARK = [];
+[-.86,-.7,-.58,.58,.7,.86].forEach((u,i)=>{
+  const wob=rnd()*6;
+  let d='';
+  for(let k=0;k<=7;k++){
+    const t=lerp(.02,.5,k/7), c=bez(TP,t), w=trunkW(t)/2;
+    d += (k?'L':'M')+f1(c[0]+u*w*.96+Math.sin(t*16+wob)*2)+' '+f1(c[1]);
+  }
+  BARK.push({d,w:f1(1.4+rnd()*.8)});
+});
+
+/* painterly foliage: big scalloped clumps (a few overlapping circles each), shaded and lit */
+const circ = (x,y,r)=>`M${f1(x-r)} ${f1(y)}a${f1(r)} ${f1(r)} 0 1 0 ${f1(2*r)} 0a${f1(r)} ${f1(r)} 0 1 0 ${f1(-2*r)} 0`;
+function leafAt(ox,oy,a,len,w){
+  const sn=Math.sin(a), cs=Math.cos(a);
+  const P=(x,y)=>f1(ox+x*cs-y*sn)+' '+f1(oy+x*sn+y*cs);
+  return `M${P(0,-2)}Q${P(w,-len*.45)} ${P(0,-len)}Q${P(-w,-len*.45)} ${P(0,-2)}Z`;
+}
+const LOBES = [
+  {x:500,y:150,r:105},{x:405,y:188,r:90},{x:595,y:188,r:90},{x:500,y:110,r:58},
+  {x:425,y:122,r:58},{x:575,y:122,r:58},{x:330,y:218,r:78},{x:670,y:218,r:78},
+  {x:268,y:286,r:56},{x:732,y:286,r:56},{x:400,y:292,r:66},{x:600,y:292,r:66},
+  {x:500,y:268,r:78},{x:336,y:334,r:40},{x:664,y:334,r:40},{x:450,y:348,r:40},{x:550,y:348,r:40}
+];
+const CLUMPS = [];
+function lumpy(r,R=rnd){
+  const lumps=[[0,0,r]];
+  for(let k=0;k<5;k++){ const a=k*1.2566+R()*.5, dist=r*(.55+R()*.25); lumps.push([Math.cos(a)*dist,Math.sin(a)*dist*.85,r*(.5+R()*.2)]); }
+  let lv='';
+  for(let k=0;k<4;k++){ const q=lumps[Math.floor(R()*lumps.length)]; lv+=leafAt(q[0]-q[2]*.3,q[1]-q[2]*.3,-1.3+R()*1.6,12+R()*6,5+R()*1.5); }
+  return {body:lumps.map(q=>circ(q[0],q[1],q[2])).join(''),hi:lumps.map(q=>circ(q[0]-4,q[1]-6,q[2]*.62)).join(''),vein:lv};
+}
+LOBES.forEach(L=>{
+  const n=Math.max(3,Math.round(1.7*L.r*L.r/1156));
+  for(let i=0;i<n;i++){
+    const ang=rnd()*6.283, dd=Math.sqrt(rnd());
+    const cx=L.x+Math.cos(ang)*dd*L.r*.92, cy=L.y+Math.sin(ang)*dd*L.r*.8;
+    const tone=clamp(((cy-80)/290)*.78+((cx-500)/260)*.12+.1+(rnd()-.5)*.3,0,1);   // lower and right = deeper shade
+    const ro=lumpy(26+rnd()*14);
+    CLUMPS.push({i:CLUMPS.length,cx,cy,tone,t:rnd(),body:ro.body,hi:ro.hi,vein:ro.vein});
+  }
+});
+/* extra leaves where the crown meets the trunk, so no sky shows through (own random seed, so the rest of the tree is unchanged) */
+const rx=(s=>()=>(s=(s*16807)%2147483647)/2147483647)(77);
+[[500,352,34],[462,346,32],[538,346,32],[500,326,30],[440,336,30],[560,336,30],[480,372,30],[522,372,30],[500,388,28],[452,366,28],[548,366,28]].forEach(([x,y,r])=>{
+  const ro=lumpy(r,rx); CLUMPS.push({i:CLUMPS.length,cx:x,cy:y,tone:.78+rx()*.18,t:rx()*.7,body:ro.body,hi:ro.hi,vein:ro.vein});
+});
+CLUMPS.sort((a,b)=>b.tone-a.tone);   // darkest at the back, sunlit leaves on top
+/* leaf shapes live in one hidden SVG and are reused with <use>, so each redraw stays small */
+document.body.insertAdjacentHTML('beforeend',`<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>${CLUMPS.map(c=>`<path id="cb${c.i}" d="${c.body}"/><path id="ch${c.i}" d="${c.hi}"/><path id="cv${c.i}" d="${c.vein}"/>`).join('')}</defs></svg>`);
+
+/* grass tufts and fallen leaves on the ground */
+let TUFT_D = '';
+for(let i=0;i<30;i++){
+  const x=20+rnd()*960, y=508+rnd()*72, h=9+rnd()*8;
+  for(let k=-1;k<=1;k++) TUFT_D += `M${f1(x)} ${f1(y)}q${k*3} ${f1(-h*.6)} ${f1(k*5+rnd()*3)} ${f1(-h)}`;
+}
+const LITTER = Array.from({length:30},()=>({x:300+rnd()*400,y:536+rnd()*44,a:Math.round(rnd()*180)}));
+
+function daisy(x,y,r,c){
+  let s=`<line x1="${x}" y1="${y}" x2="${x}" y2="${y+r*2.2}" stroke="#4c8a3a" stroke-width="2.2"/>`;
+  for(let i=0;i<10;i++) s+=`<ellipse cx="${x}" cy="${f1(y-r*.72)}" rx="${f1(r*.26)}" ry="${f1(r*.5)}" transform="rotate(${i*36} ${x} ${y})" fill="${c}"/>`;
+  return s+`<circle cx="${x}" cy="${y}" r="${f1(r*.38)}" fill="#7a4a1c"/>`;
+}
+
+/* ---------- people ---------- */
+const PEOPLE = {
+  girl: {skin:'#dca581',hair:'#2e1d14',top:'#b8738a',dress:true,k:1,twin:true},
+  girl2:{skin:'#e6b794',hair:'#4a2c1a',top:'#d9a441',dress:true,k:.97},
+  boy:  {skin:'#c28d66',hair:'#21160f',top:'#5d8bb3',pants:'#3d5878',k:1},
+  boy2: {skin:'#b57f58',hair:'#1a120c',top:'#6aa37a',pants:'#3a4f45',k:1.03},
+  elderF:{skin:'#d8a58a',hair:'#dcdcd8',top:'#8a4f6a',dress:true,long:true,k:1.2,elder:true},
+  elderM:{skin:'#c99876',hair:'#e4e4e0',top:'#d8d2bd',pants:'#55595f',k:1.28,elder:true,cane:true,glasses:true}
+};
+function person(x,y,type,level,delay,sc,pose){
+  const P=PEOPLE[type], el=!!P.elder, ex=el?16:0;
+  const jacket=level>=2, jc=el?'#6b5d4f':'#56657f', arm=jacket?jc:P.skin;
+  const up=(pose==='catch'||pose==='jump'), kt=(pose==='kite');
+  const bow=(level>=3?-6:0)+(el?-3:0);
+  let lx=-23,ly=-46,rx=23,ry=-46;
+  if(up){lx=-26;ly=-94;rx=26;ry=-94;}
+  if(kt){rx=24;ry=-92;}
+  if(P.cane){rx=25;ry=-40;}
+  const cls='kid'+(pose==='catch'?' play':pose==='jump'?' jump':'');
+  let s=`<g transform="translate(${x} ${y}) scale(${f1(sc*P.k)})"><g class="${cls}" style="animation-delay:${delay}s">`;
+  s+=`<ellipse cx="0" cy="2" rx="24" ry="5" fill="#000" opacity=".2"/>`;
+  const legC=(P.pants&&el)?P.pants:P.skin;
+  s+=`<rect x="-9" y="${-34-ex}" width="6.5" height="${30+ex}" rx="3" fill="${legC}"/><rect x="3" y="${-34-ex}" width="6.5" height="${30+ex}" rx="3" fill="${legC}"/>`;
+  s+=`<rect x="-11" y="-5" width="10" height="7" rx="3.5" fill="#33333f"/><rect x="1" y="-5" width="10" height="7" rx="3.5" fill="#33333f"/>`;
+  s+=`<g transform="translate(0 ${-ex}) rotate(${el?-4:0} 0 -34)">`;
+  if(P.dress){
+    s+= P.long ? `<path d="M-13 -76L13 -76L25 ${-8+ex}L-25 ${-8+ex}Z" fill="${P.top}"/><path d="M-13 -76L13 -76L8 -30L-8 -30Z" fill="#fff" opacity=".14"/>`
+               : `<path d="M-12 -74L12 -74L21 -34L-21 -34Z" fill="${P.top}"/>`;
+  } else {
+    s+=`<rect x="-12" y="-74" width="24" height="${el?34:26}" rx="5" fill="${P.top}"/>`;
+    if(!el) s+=`<rect x="-12" y="-50" width="24" height="17" rx="3" fill="${P.pants}"/>`;
+  }
+  if(jacket) s+=`<rect x="-14" y="-76" width="28" height="${el?46:40}" rx="8" fill="${jc}"/><line x1="0" y1="-76" x2="0" y2="${el?-30:-36}" stroke="#00000033" stroke-width="2"/>`;
+  s+=`<line x1="-12" y1="-70" x2="${lx}" y2="${ly}" stroke="${arm}" stroke-width="7" stroke-linecap="round"/><line x1="12" y1="-70" x2="${rx}" y2="${ry}" stroke="${arm}" stroke-width="7" stroke-linecap="round"/>`;
+  s+=`<circle cx="${lx}" cy="${ly}" r="4" fill="${P.skin}"/><circle cx="${rx}" cy="${ry}" r="4" fill="${P.skin}"/>`;
+  if(P.cane) s+=`<path d="M${rx} ${ry}L${rx+4} ${ex+2}" stroke="#6b4b36" stroke-width="3" stroke-linecap="round"/><path d="M${rx-4} ${ry-1}Q${rx} ${ry-6} ${rx+4} ${ry-1}" fill="none" stroke="#6b4b36" stroke-width="3" stroke-linecap="round"/>`;
+  s+=`<rect x="-3" y="-80" width="6" height="8" fill="${P.skin}"/>`;
+  s+=`<g transform="rotate(${bow} 0 -80)">`;
+  if(P.twin) s+=`<circle cx="-20" cy="-88" r="5.5" fill="${P.hair}"/><circle cx="20" cy="-88" r="5.5" fill="${P.hair}"/>`;
+  if(type==='girl2') s+=`<circle cx="-19" cy="-104" r="6" fill="${P.hair}"/>`;
+  if(type==='elderF') s+=`<circle cx="0" cy="-114" r="7" fill="${P.hair}"/>`;
+  s+=`<circle cx="0" cy="-95" r="18" fill="${P.skin}"/>`;
+  s+=`<path d="M-19 -97A19 19 0 0 1 19 -97Q10 -109 -2 -107Q-12 -105 -19 -97Z" fill="${P.hair}"/>`;
+  if(level>=3 && !el) s+=`<path d="M-20 -99A20 20 0 0 1 20 -99Z" fill="#a8523f"/><rect x="2" y="-102" width="24" height="5" rx="2.5" fill="#8c4332"/>`;
+  s+=`<circle cx="-6" cy="-95" r="2" fill="#222"/><circle cx="6" cy="-95" r="2" fill="#222"/>`;
+  if(P.glasses) s+=`<g fill="none" stroke="#333" stroke-width="1.2"><circle cx="-6" cy="-95" r="4.6"/><circle cx="6" cy="-95" r="4.6"/><path d="M-1.4 -95h2.8"/></g>`;
+  if(level>=3) s+=`<path d="M-10 -99L-3 -101.5M3 -101.5L10 -99" stroke="#222" stroke-width="1.5" stroke-linecap="round"/>`;
+  if(up) s+=`<circle cx="-11" cy="-90" r="3" fill="#e88a8a" opacity=".35"/><circle cx="11" cy="-90" r="3" fill="#e88a8a" opacity=".35"/><path d="M-6 -88Q0 -80 6 -88Z" fill="#7a2f2f"/>`;
+  else if(level<2) s+=`<path d="M-5 -87Q0 -83 5 -87" fill="none" stroke="#6e3030" stroke-width="1.8" stroke-linecap="round"/>`;
+  if(level>=2){
+    const mc=level>=4?'#eef1f4':'#d4e6ef';
+    s+=`<path d="M-11 -92Q0 -95 11 -92L10 -80Q0 -76 -10 -80Z" fill="${mc}" stroke="#7c97a8" stroke-width="1.2"/><path d="M-11 -91L-18 -95M11 -91L18 -95" stroke="#7c97a8" stroke-width="1.2"/>`;
+  }
+  s+=`</g></g></g></g>`;
+  return s;
+}
+/* a child sitting and reading, like a quiet corner of the park */
+function reader(x,y,sc){
+  return `<g transform="translate(${x} ${y}) scale(${-sc} ${sc})"><g class="kid">
+    <ellipse cx="12" cy="2" rx="36" ry="5" fill="#000" opacity=".2"/>
+    <rect x="-4" y="-17" width="44" height="9" rx="4.5" fill="#2f3a4a"/><ellipse cx="42" cy="-12.5" rx="7" ry="5" fill="#33333f"/>
+    <rect x="-12" y="-52" width="24" height="40" rx="9" fill="#e9e7df" transform="rotate(14 0 -14)"/>
+    <line x1="4" y1="-44" x2="22" y2="-34" stroke="#c28d66" stroke-width="6" stroke-linecap="round"/>
+    <circle cx="8" cy="-62" r="14" fill="#c28d66"/>
+    <path d="M-6 -66A14 14 0 0 1 22 -66Q15 -77 8 -75Q0 -74 -6 -66Z" fill="#21160f"/>
+    <circle cx="14" cy="-60" r="1.7" fill="#222"/>
+    <g transform="translate(25 -34) rotate(-20)"><rect x="-10" y="-7" width="20" height="14" rx="1.5" fill="#d86a4a"/><rect x="-8.5" y="-6" width="17" height="12" fill="#f6f1e3"/><path d="M0 -6V6" stroke="#bbb" stroke-width=".8"/></g>
+  </g></g>`;
+}
+function kiteSVG(hx,hy){
+  return `<path d="M${hx} ${hy}Q${hx-14} ${hy-120} 905 268" fill="none" stroke="#fff" stroke-opacity=".75" stroke-width="1.2"/>
+  <g class="kite"><path d="M905 204L926 232L905 268L884 232Z" fill="#e0634a"/><path d="M905 204V268M884 232H926" stroke="#fff" stroke-opacity=".45" fill="none"/><path d="M905 268Q890 282 904 292Q920 302 906 316" stroke="#e0634a" stroke-width="2" fill="none"/><circle cx="898" cy="284" r="3" fill="#f2c94c"/><circle cx="912" cy="300" r="3" fill="#6bb1d8"/></g>`;
+}
+
+function faceSVG(level,trunk){
+  const brows = [
+    ['M469 392Q478 386 487 391','M513 391Q522 386 531 392'],
+    ['M469 393Q478 389 487 392','M513 392Q522 389 531 393'],
+    ['M469 394L487 390','M513 390L531 394'],
+    ['M468 396L487 389','M513 389L532 396'],
+    ['M468 398L487 388','M513 388L532 398'],
+    ['M467 399L487 387','M513 387L533 399']
+  ][level];
+  const mouth = [null,'M486 441Q500 452 514 441','M488 444L512 444','M486 448Q500 441 514 448','M483 451Q500 437 517 451','M484 450Q492 443 500 450Q508 443 516 450'][level];
+  const lid = [0,0,3,5.5,8,11][level];
+  const dark = mix(trunk,'#000000',.6);
+  const soft = mix(trunk,'#000000',.38);
+  let s = `<g id="face">`;
+  if(level<=1) s += `<circle cx="458" cy="428" r="7" fill="#f4a0a0" opacity=".38"/><circle cx="542" cy="428" r="7" fill="#f4a0a0" opacity=".38"/>`;
+  s += `<g class="blink"><ellipse cx="478" cy="408" rx="9.5" ry="10" fill="#f6f3ea"/><ellipse cx="522" cy="408" rx="9.5" ry="10" fill="#f6f3ea"/>`;
+  s += `<g id="pupils"><circle cx="478" cy="409" r="5.6" fill="#2b1d12"/><circle cx="522" cy="409" r="5.6" fill="#2b1d12"/><circle cx="480.2" cy="406.6" r="1.9" fill="#fff"/><circle cx="524.2" cy="406.6" r="1.9" fill="#fff"/><circle cx="476" cy="411.5" r=".9" fill="#fff" opacity=".8"/><circle cx="520" cy="411.5" r=".9" fill="#fff" opacity=".8"/></g>`;
+  if(lid>0) s += `<g clip-path="url(#eL)"><rect x="467" y="397" width="22" height="${lid}" fill="${trunk}"/></g><g clip-path="url(#eR)"><rect x="511" y="397" width="22" height="${lid}" fill="${trunk}"/></g>`;
+  s += `</g>`;
+  if(level>=3) s += `<path d="M469 421Q478 426 487 421M513 421Q522 426 531 421" fill="none" stroke="${dark}" stroke-width="1.5" opacity=".45" stroke-linecap="round"/>`;
+  if(level>=4) s += `<ellipse class="tear" cx="487" cy="424" rx="1.8" ry="3" fill="#a9d6f2"/>`;
+  s += `<path d="${brows[0]}" fill="none" stroke="${soft}" stroke-width="2.2" stroke-linecap="round"/><path d="${brows[1]}" fill="none" stroke="${soft}" stroke-width="2.2" stroke-linecap="round"/>`;
+  if(level===0) s += `<path d="M481 436Q500 463 519 436Q500 441 481 436Z" fill="#4a2018"/><ellipse cx="500" cy="450" rx="6.5" ry="3" fill="#d8736c"/>`;
+  else s += `<path d="${mouth}" fill="none" stroke="${dark}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>`;
+  s += `</g>`;
+  return s;
+}
+
+function renderScene(aqi){
+  const level = levelOf(aqi);
+  const a = Math.min(aqi,400);
+  const d = Math.pow(clamp(1-a/300,0,1),0.9);
+  const leaf  = ramp([[0,'#4c9a4e'],[60,'#7aa743'],[110,'#b4a040'],[160,'#a9793a'],[220,'#7d5a3a'],[300,'#625548']],a);
+  const trunk = ramp([[0,'#6e4d33'],[200,'#5e4a3a'],[300,'#504a46']],a);
+  const skyTop= ramp([[0,'#4f9bc4'],[80,'#6ba3bd'],[150,'#9a9a86'],[220,'#8a8070'],[300,'#5f564e']],a);
+  const skyBot= ramp([[0,'#cfe9ec'],[80,'#cfe1e1'],[150,'#d3c9ae'],[220,'#b8a98e'],[300,'#8a7d6c']],a);
+  const ground= ramp([[0,'#6fae5c'],[100,'#8fb356'],[200,'#a39a4d'],[300,'#7f704f']],a);
+  const ground2=mix(ground,'#1d2a1c',.22);
+  const hills = ramp([[0,'#7fae9a'],[150,'#9a9a7c'],[300,'#6f665a']],a);
+  const hills2= ramp([[0,'#5f9680'],[150,'#82826a'],[300,'#5d554a']],a);
+  const sun   = ramp([[0,'#ffe07a'],[150,'#f5a623'],[250,'#d9602a']],a);
+  const cloud = mix('#ffffff','#a39d92',clamp(a/250,0,1));
+  const smog  = ramp([[0,'#9a9486'],[200,'#7a6c5a'],[400,'#5a4a3c']],a);
+  const hazeOp= clamp(a/380,0,0.6);
+
+  let s = `<defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="${skyTop}"/><stop offset="1" stop-color="${skyBot}"/></linearGradient>
+    <linearGradient id="tg" gradientUnits="userSpaceOnUse" x1="380" y1="0" x2="620" y2="0"><stop offset="0" stop-color="${mix(trunk,'#ffffff',.1)}"/><stop offset=".55" stop-color="${trunk}"/><stop offset="1" stop-color="${mix(trunk,'#000000',.32)}"/></linearGradient>
+    <linearGradient id="tshade" gradientUnits="userSpaceOnUse" x1="0" y1="340" x2="0" y2="450"><stop offset="0" stop-color="#000" stop-opacity=".4"/><stop offset="1" stop-color="#000" stop-opacity="0"/></linearGradient><radialGradient id="sunG"><stop offset="0" stop-color="${sun}" stop-opacity=".6"/><stop offset="1" stop-color="${sun}" stop-opacity="0"/></radialGradient>
+    <clipPath id="eL"><ellipse cx="478" cy="408" rx="9.5" ry="10"/></clipPath><clipPath id="eR"><ellipse cx="522" cy="408" rx="9.5" ry="10"/></clipPath>
+  </defs>`;
+  s += `<rect width="1000" height="600" fill="url(#sky)"/>`;
+  const sunOp = clamp(1-a/240,0.15,1);
+  s += `<g opacity="${sunOp}"><circle class="sunbreath" cx="800" cy="120" r="120" fill="url(#sunG)"/><circle cx="800" cy="120" r="34" fill="${sun}"/></g>`;
+  if(a<70){
+    s += `<g class="ray" fill="#fff2b0" fill-opacity=".13"><polygon points="800,100 520,560 610,560"/><polygon points="800,100 660,560 740,560"/><polygon points="800,100 380,560 450,560"/><polygon points="800,100 800,560 880,560"/></g>`;
+  }
+  s += `<g class="drift" style="animation-duration:90s" fill="${cloud}" opacity=".85"><ellipse cx="190" cy="105" rx="70" ry="20"/><ellipse cx="230" cy="90" rx="44" ry="20"/><ellipse cx="150" cy="96" rx="36" ry="15"/></g>`;
+  s += `<g class="drift" style="animation-duration:110s;animation-delay:-30s" fill="${cloud}" opacity=".8"><ellipse cx="620" cy="62" rx="62" ry="17"/><ellipse cx="652" cy="50" rx="36" ry="17"/></g>`;
+  if(a<60){
+    s += `<g class="bird"><path transform="translate(0 150)" d="M0 0 Q7 -8 14 0 Q21 -8 28 0" fill="none" stroke="#243543" stroke-width="2" stroke-linecap="round"/><path transform="translate(44 134)" d="M0 0 Q6 -7 12 0 Q18 -7 24 0" fill="none" stroke="#243543" stroke-width="2" stroke-linecap="round"/></g>`;
+  }
+  const mtn = ramp([[0,'#a8bfd0'],[120,'#b7bfbb'],[250,'#9c9486']],a);
+  const mtn2= ramp([[0,'#8fb0c4'],[120,'#a3ada5'],[250,'#8a8174']],a);
+  s += `<path d="M0 470L70 410L120 440L210 350L290 430L350 400L430 455L520 420L600 460L700 380L790 440L870 400L940 440L1000 410L1000 600L0 600Z" fill="${mtn}" opacity=".9"/>`;
+  s += `<path d="M210 350L232 376L214 372L200 380Z M700 380L722 404L706 400L690 408Z" fill="#fff" opacity="${(0.7*clamp(1-a/160,0,1)).toFixed(2)}"/>`;
+  s += `<path d="M0 480L90 445L170 470L260 430L350 468L450 448L560 476L650 440L760 472L860 448L1000 474L1000 600L0 600Z" fill="${mtn2}" opacity=".95"/>`;
+  s += `<path d="M0 484Q200 454 400 474T800 466T1000 474L1000 600L0 600Z" fill="${hills2}"/>`;
+  let con='';
+  [24,52,84,150,176,330,364,722,756,904,940,972].forEach((x,i)=>{ const h=34+(i*7)%22, b=476+(i%3)*3; con+=`M${x} ${b-h}L${x+h*.24} ${b}L${x-h*.24} ${b}Z`; });
+  s += `<path d="${con}" fill="${mix(hills2,'#10301f',.45)}" opacity=".9"/>`;
+  s += `<rect width="1000" height="600" fill="${smog}" opacity="${hazeOp.toFixed(2)}"/>`;
+  s += `<path d="M0 500 Q260 468 500 498 T1000 486 L1000 600 L0 600Z" fill="${ground}"/>`;
+  s += `<path d="M0 548 Q300 520 540 544 T1000 534 L1000 600 L0 600Z" fill="${ground2}" opacity=".55"/>`;
+  if(a<90){
+    const cols=['#e993ad','#f2d36b','#ffffff','#f0a56c'];
+    [[120,552],[170,570],[820,556],[868,574],[380,572],[640,576],[60,576],[950,568]].forEach((p,i)=>{
+      s += `<g><line x1="${p[0]}" y1="${p[1]}" x2="${p[0]}" y2="${p[1]+10}" stroke="#3a7a3a" stroke-width="2"/><circle cx="${p[0]}" cy="${p[1]}" r="4.5" fill="${cols[i%4]}"/><circle cx="${p[0]}" cy="${p[1]}" r="1.8" fill="#f2d36b"/></g>`;
+    });
+  }
+
+  /* ---- ground details ---- */
+  s += `<ellipse cx="840" cy="528" rx="115" ry="8" fill="${mix('#9fd0e6',skyBot,.35)}" opacity=".85"/>`;
+  s += `<path d="${TUFT_D}" fill="none" stroke="${mix(ground,'#1d2a1c',.35)}" stroke-width="1.7" stroke-linecap="round" opacity=".8"/>`;
+  if(a<110){
+    s += daisy(34,566,16,'#f2a93b')+daisy(92,588,12,'#f2c14b')+daisy(958,572,14,'#e98fb0')+daisy(910,592,11,'#f5b3c8');
+  }
+  s += `<ellipse cx="500" cy="540" rx="190" ry="18" fill="#000" opacity=".2"/><ellipse cx="500" cy="538" rx="110" ry="11" fill="${mix(ground,'#2a1c10',.6)}" opacity=".55"/>`;
+  if(level>=2){
+    const nl = Math.min(LITTER.length, level*6);
+    for(let i=0;i<nl;i++){
+      const q=LITTER[i];
+      s += `<ellipse cx="${f1(q.x)}" cy="${f1(q.y)}" rx="6" ry="2.6" transform="rotate(${q.a} ${f1(q.x)} ${f1(q.y)})" fill="${mix(leaf,'#2a1c10',.2)}"/>`;
+    }
+  }
+
+  /* ---- tree ---- */
+  s += `<g id="tree" transform="translate(500 538) scale(.86) translate(-500 -538)"><g class="treesway">`;
+  s += LIMBS.map(l=>`<path d="${l.d}" fill="url(#tg)"/>`).join('');
+  s += ROOTS.map(d=>`<path d="${d}" fill="url(#tg)"/>`).join('');
+  s += `<path d="${TRUNK_D}" fill="url(#tg)"/><path d="${TRUNK_D}" fill="url(#tshade)"/>`;
+  s += `<g fill="none" stroke="${mix(trunk,'#000000',.45)}" stroke-linecap="round" opacity=".3">${BARK.map(b=>`<path d="${b.d}" stroke-width="${b.w}"/>`).join('')}</g>`;
+  if(d<0.5) s += `<g fill="none" stroke="${mix(trunk,'#000000',.55)}" stroke-width="2" opacity="${clamp((0.5-d)*1.6,0,.6).toFixed(2)}" stroke-linecap="round" stroke-linejoin="round"><path d="M452 505L460 518L454 530"/><path d="M548 498L541 512L548 524"/></g>`;
+
+  s += `<g class="crown" id="crown">`;
+  const twig = clamp((0.88-d)*1.7,0,1);
+  if(twig>0) s += `<g fill="none" stroke="${trunk}" stroke-width="2.8" stroke-linecap="round" opacity="${twig.toFixed(2)}">${TWIGS.map(t=>`<path d="${t}"/>`).join('')}</g>`;
+  const deep = mix(leaf,'#0b2c22',.62);
+  if(d>0.5) s += `<path d="${LOBES.filter(L=>L.x>=395&&L.x<=605).map(L=>circ(L.x,L.y,L.r*.74)).join('')+circ(500,352,52)}" fill="${deep}" opacity="${clamp((d-.45)*2.5,0,1).toFixed(2)}"/>`;
+  const litMain = mix(leaf,'#cdea78',.2), sc = (0.7+0.3*d).toFixed(2);
+  let cs = '';
+  for(const c of CLUMPS){
+    if(c.t>=d) continue;
+    const base = mix(litMain,deep,c.tone), x=Math.round(c.cx), y=Math.round(c.cy), tf=`translate(${x} ${y}) scale(${sc})`;
+    cs += `<use href="#cb${c.i}" transform="translate(${x+3} ${y+5}) scale(${sc})" fill="${mix(base,'#0a2a20',.5)}"/><use href="#cb${c.i}" transform="${tf}" fill="${base}"/>`;
+    if(c.tone<.55) cs += `<use href="#ch${c.i}" transform="${tf}" fill="${mix(base,'#f2f78c',.42)}" opacity=".8"/><use href="#cv${c.i}" transform="${tf}" fill="${mix(base,'#fffbb5',.5)}" opacity=".7"/>`;
+  }
+  s += cs + `</g>`;
+  s += `</g></g>`;
+
+  if(a<70){
+    [[330,420,0],[400,470,2],[560,450,4],[640,400,1],[720,470,3],[790,430,5],[260,480,6],[860,380,7],[470,500,8],[600,500,9],[190,440,4],[920,470,2]].forEach(m=>{
+      s += `<circle class="mote" cx="${m[0]}" cy="${m[1]}" r="1.9" fill="#fff6c4" style="animation-delay:-${m[2]}s"/>`;
+    });
+  }
+  if(level<=1){
+    s += person(70,560,'elderF',level,0,.72,'stand');
+    s += person(122,562,'elderM',level,.8,.72,'stand');
+    s += person(232,556,'girl',level,0,.72,'catch');
+    s += person(342,556,'boy',level,-1.2,.72,'catch');
+    s += `<g transform="translate(251 488)"><g class="bx"><g class="by"><circle r="7.5" fill="#e0a43a"/><path d="M-7 0Q0 -4.5 7 0M0 -7.5Q4.5 0 0 7.5" stroke="#8a5a14" stroke-width="1.2" fill="none"/></g></g></g>`;
+    s += reader(700,568,.74);
+    s += person(770,560,'girl2',level,0,.72,'jump');
+    s += person(818,562,'boy2',level,.5,.72,'jump');
+    s += person(884,556,'boy',level,0,.74,'kite');
+    s += kiteSVG(902,488);
+  } else if(level<=3){
+    s += person(130,560,'elderF',level,0,.72,'stand');
+    s += person(232,556,'girl',level,0,.72,'stand');
+    s += person(300,558,'boy',level,1.1,.72,'stand');
+    s += person(700,560,'elderM',level,.6,.72,'stand');
+    s += person(770,558,'girl2',level,1.6,.72,'stand');
+  } else {
+    s += person(300,558,'girl',level,0,.78,'stand');
+    s += person(700,560,'boy',level,1.4,.78,'stand');
+  }
+
+  $('scene').innerHTML = s;
+  lastSway = 999;
+  measureTree();
+}
+
+/* ================= fog, wind and falling leaves (canvas) ================= */
+const K = 0.5;                       // drawn at half resolution (kind to older laptops)
+const cv = $('fog'), ctx = cv.getContext('2d');
+const fog = {parts:[], sprite:null, clear:0, T:{x:0,y:0,r:220}, mx:0, my:0, lx:0, ly:0, active:false, dens:0, color:'', count:-1, lite:false, leafCol:'#4c9a4e', leafRate:1.5, gold:true};
+const wind = {x:0,y:0};              // follows the way the mouse moves
+let leaves = [], streaks = [], spawnAcc = 0, swayA = 0, lastSway = 999, hintDone = false;
+
+function measureTree(){
+  const el = $('tree'); if(!el) return;
+  const r = el.getBoundingClientRect();
+  fog.T = {x:r.left+r.width/2, y:r.top+r.height*0.5, r:Math.max(r.width,r.height)*0.5};
+}
+function resizeFog(){
+  cv.width = Math.round(innerWidth*K); cv.height = Math.round(innerHeight*K);
+  ctx.setTransform(K,0,0,K,0,0);
+  measureTree(); fog.count=-1; setFog(curAqi());
+}
+function buildSprite(color){
+  const c = document.createElement('canvas'); c.width=c.height=128;
+  const g = c.getContext('2d'), gr = g.createRadialGradient(64,64,0,64,64,64);
+  gr.addColorStop(0,rgba(color,1)); gr.addColorStop(.5,rgba(color,.5)); gr.addColorStop(1,rgba(color,0));
+  g.fillStyle = gr; g.fillRect(0,0,128,128);
+  return c;
+}
+function setFog(aqi){
+  const a = Math.min(aqi,400);
+  fog.dens = clamp((a-40)/220,0,1);
+  fog.leafCol = ramp([[0,'#4c9a4e'],[60,'#7aa743'],[110,'#b4a040'],[160,'#a9793a'],[220,'#7d5a3a'],[300,'#625548']],a);
+  const dens = Math.pow(clamp(1-a/300,0,1),0.9);
+  fog.leafRate = dens<0.08 ? 0.3 : (a<60 ? 1.2 : 1.2+Math.min(a,220)/40);   // more leaves let go as the air gets worse
+  fog.gold = a<70;
+  const color = ramp([[0,'#a9b2b0'],[100,'#a6a28f'],[200,'#8d7d63'],[400,'#6d5a44']],a);
+  if(color!==fog.color){ fog.color=color; fog.sprite=buildSprite(color); }
+  let count = a<=40 ? 0 : Math.round(12+fog.dens*58);
+  if(fog.lite) count = Math.round(count*0.55);
+  if(count===fog.count) return;
+  fog.count = count;
+  const T=fog.T, sc=Math.max(.75,Math.min(innerWidth,innerHeight)/700), R=Math.random;
+  fog.parts = Array.from({length:count},()=>{
+    let hx,hy;
+    if(R()<0.68){ const ang=R()*Math.PI*2, dd=Math.sqrt(R())*T.r*1.25; hx=T.x+Math.cos(ang)*dd; hy=T.y+Math.sin(ang)*dd*0.85; }
+    else { hx=R()*innerWidth; hy=innerHeight*(0.25+R()*0.7); }
+    return {hx,hy,x:hx,y:hy,r:(110+R()*130)*sc,al:(0.10+R()*0.12)*(0.55+0.9*fog.dens),ph:R()*6.28,sp:0.6+R()*0.8,push:0.75+R()*0.5};
+  });
+}
+function spawnLeaf(){
+  const T=fog.T, R=Math.random;
+  const col = (fog.gold && R()<.35) ? '#e8b84a' : mix(fog.leafCol, R()<.5?'#0f2418':'#ffffff', R()*.25);
+  leaves.push({x:T.x+(R()*2-1)*T.r*.78, y:T.y-T.r*.62+R()*T.r*.45, vx:0, vy:10+R()*10, rot:R()*6.28, spin:(R()-.5)*3, s:7+R()*4, fall:38+R()*28, ph:R()*6.28, col, floor:innerHeight*(.8+R()*.14)});
+}
+
+let last=0, frames=0, slow=0;
+function tick(ts){
+  requestAnimationFrame(tick);
+  if(document.hidden) return;
+  const dt0 = ts-last; if(dt0<32) return;
+  last = ts;
+  const dt = Math.min(.1,dt0/1000), t = ts/1000;
+  if(!fog.lite && frames<100){ frames++; if(dt0>48) slow++; if(frames===100 && slow>55){ fog.lite=true; document.body.classList.add('lite'); fog.count=-1; setFog(curAqi()); } }
+  const reduce = matchMedia('(prefers-reduced-motion:reduce)').matches;
+
+  /* wind = how the mouse is moving right now */
+  let wx=0, wy=0;
+  if(fog.active){ wx=clamp(fog.mx-fog.lx,-45,45); wy=clamp(fog.my-fog.ly,-45,45); }
+  fog.lx=fog.mx; fog.ly=fog.my;
+  const rate = Math.hypot(wx,wy)>Math.hypot(wind.x,wind.y) ? 0.25 : 0.05;     // picks up fast, dies down slowly
+  wind.x += (wx-wind.x)*rate; wind.y += (wy-wind.y)*rate;
+  const wmag = Math.hypot(wind.x,wind.y);
+
+  /* the crown leans the way the wind blows */
+  const cr = document.getElementById('crown');
+  if(cr && !fog.lite && !reduce){
+    const target = clamp(wind.x*.1,-3.2,3.2) + Math.sin(t*5)*Math.min(.6,wmag/30);
+    swayA += (target-swayA)*.18;
+    if(Math.abs(swayA-lastSway)>.04){ cr.setAttribute('transform',`rotate(${swayA.toFixed(2)} 500 400)`); lastSway=swayA; }
+  }
+
+  ctx.clearRect(0,0,innerWidth,innerHeight);
+
+  /* fog */
+  const T=fog.T;
+  let prox = 0;
+  if(fog.active){ const dd=Math.hypot(fog.mx-T.x,fog.my-T.y); prox=1-clamp(dd/(T.r*1.5),0,1); prox=prox*prox*(3-2*prox); }
+  fog.clear += (prox-fog.clear)*(prox>fog.clear?0.09:0.012);
+  for(const p of fog.parts){
+    const dx=p.hx-T.x, dy=p.hy-T.y, dist=Math.hypot(dx,dy)||1;
+    const near = clamp(1-dist/(T.r*2.2),0,1);
+    const out = fog.clear*near*T.r*1.5*p.push;
+    let tx = p.hx + (reduce?0:Math.sin(t*0.15*p.sp+p.ph)*42) + (dx/dist)*out + wind.x*p.sp*3;
+    let ty = p.hy + (reduce?0:Math.cos(t*0.12*p.sp+p.ph*1.3)*18) + (dy/dist)*out*0.6 + wind.y*1.5;
+    if(fog.active){
+      const mx=p.x-fog.mx, my=p.y-fog.my, md=Math.hypot(mx,my), BR=170;
+      if(md<BR && md>0){ const f=1-md/BR; tx+=mx/md*f*120; ty+=my/md*f*80; }
+    }
+    p.x += (tx-p.x)*0.07; p.y += (ty-p.y)*0.07;
+    ctx.globalAlpha = p.al*(1-0.6*fog.clear*near);
+    ctx.drawImage(fog.sprite,p.x-p.r,p.y-p.r,p.r*2,p.r*2);
+  }
+  ctx.globalAlpha = 1;
+
+  /* leaves: they drift down, and the wind carries them the way the mouse moved */
+  if(!reduce){
+    spawnAcc += (fog.leafRate + wmag*.35)*dt;
+    while(spawnAcc>=1){ spawnAcc-=1; if(leaves.length<70) spawnLeaf(); }
+  }
+  for(let i=leaves.length-1;i>=0;i--){
+    const l=leaves[i], k=Math.min(1,dt*1.6);
+    l.vx += ((wind.x*14 + Math.sin(t*1.7+l.ph)*14) - l.vx)*k;
+    l.vy += ((l.fall + Math.max(0,wind.y)*10) - l.vy)*k;
+    l.x += l.vx*dt; l.y += l.vy*dt; l.rot += (l.spin + wind.x*.05)*dt*3;
+    if(l.y>l.floor || l.x<-60 || l.x>innerWidth+60 || l.y<-90){ leaves.splice(i,1); continue; }
+    const al = clamp((l.floor-l.y)/40,0,1), c=Math.cos(l.rot), s=Math.sin(l.rot);
+    ctx.setTransform(K*c,K*s,-K*s,K*c,K*l.x,K*l.y);
+    ctx.globalAlpha = al*.95; ctx.fillStyle = l.col;
+    ctx.beginPath(); ctx.ellipse(0,0,l.s,l.s*.45,0,0,6.283); ctx.fill();
+  }
+  ctx.setTransform(K,0,0,K,0,0); ctx.globalAlpha = 1;
+
+  /* thin streaks so you can see which way the wind blows */
+  if(wmag>5 && streaks.length<40){
+    for(let i=0;i<Math.min(3,Math.ceil(wmag/12));i++) streaks.push({x:Math.random()*innerWidth,y:Math.random()*innerHeight*.85,age:0,life:.45+Math.random()*.4});
+  }
+  ctx.lineWidth = 1.3; ctx.lineCap = 'round';
+  for(let i=streaks.length-1;i>=0;i--){
+    const s=streaks[i]; s.age+=dt;
+    if(s.age>s.life){ streaks.splice(i,1); continue; }
+    s.x += wind.x*8*dt; s.y += wind.y*8*dt;
+    ctx.strokeStyle = `rgba(255,255,255,${(0.3*(1-s.age/s.life)).toFixed(2)})`;
+    ctx.beginPath(); ctx.moveTo(s.x,s.y); ctx.lineTo(s.x+wind.x*1.6,s.y+wind.y*1.6); ctx.stroke();
+  }
+}
+addEventListener('pointermove',e=>{
+  if(!fog.active){ fog.lx=e.clientX; fog.ly=e.clientY; }
+  fog.mx=e.clientX; fog.my=e.clientY; fog.active=true;
+  if(!hintDone){ hintDone=true; setTimeout(()=>{ $('hint').hidden=true; },6000); }
+});
+addEventListener('pointerup',e=>{ if(e.pointerType==='touch') fog.active=false; });
+addEventListener('pointercancel',()=>{ fog.active=false; });
+document.documentElement.addEventListener('pointerleave',()=>{ fog.active=false; });
+addEventListener('resize',resizeFog);
+
+/* ================= state + render ================= */
+let live = null, preview = null, currentType = 'adult', rState = 'menu';
+const curAqi = () => preview!==null ? preview : (live ? live.aqi : 40);
+
+const POLL_NAMES = {pm2_5:'PM2.5',pm10:'PM10',nitrogen_dioxide:'NO₂',ozone:'O₃',sulphur_dioxide:'SO₂',carbon_monoxide:'CO'};
+function mainPollutant(p){
+  const limits = {pm2_5:35, pm10:154, ozone:137, nitrogen_dioxide:188, sulphur_dioxide:196, carbon_monoxide:10000};
+  let best=null, bestR=-1;
+  for(const k in limits){ if(p[k]==null) continue; const r=p[k]/limits[k]; if(r>bestR){bestR=r;best=k;} }
+  return best;
+}
+
+let statusMsg = '', statusErr = false;
+function setStatus(m,err){ statusMsg=m||''; statusErr=!!err; updateChip(); }
+
+function updateChip(){
+  const aqi = curAqi(), L = LEVELS[levelOf(aqi)];
+  $('aqinum').textContent = Math.round(aqi);
+  const cat=$('cat'); cat.textContent=L.name; cat.style.background=L.color; cat.style.color=L.ink;
+  if(preview!==null){ $('place').textContent='Preview mode'; $('mainpoll').textContent=''; }
+  else if(live){ $('place').textContent=live.label; $('mainpoll').textContent = live.main ? 'Main pollutant: '+POLL_NAMES[live.main] : ''; }
+  const msg=$('msg');
+  msg.textContent = statusErr||statusMsg ? statusMsg : (preview!==null ? 'This is a made-up reading, not live data.' : (live&&live.note ? live.note : L.mood));
+  msg.className = 'small'+(statusErr?' err':'');
+  $('live').hidden = preview===null || !live;
+}
+
+function renderAll(opts){
+  const aqi = curAqi();
+  renderScene(aqi);
+  setFog(aqi);
+  updateChip();
+  if(!(opts&&opts.skipRight)) renderRight();
+}
+
+/* ---- right panel ---- */
+function renderRight(){
+  const aqi=curAqi(), lv=levelOf(aqi), L=LEVELS[lv], body=$('rbody');
+  $('rback').hidden = rState==='menu';
+  const titles={menu:'Options',advice:'Advice for you',trend:'Last 3 and next 3 days',polls:'What is in the air',preview:'Preview any AQI'};
+  $('rtitle').textContent = titles[rState];
+  if(rState==='menu'){
+    body.innerHTML = `<div class="menu">
+      <button data-go="advice"><b>Advice for you</b><span>Pick who the advice is for</span></button>
+      <button data-go="trend"><b>Last 3 and next 3 days</b><span>Daily average AQI and forecast</span></button>
+      <button data-go="polls"><b>What is in the air</b><span>PM2.5, PM10, NO₂, O₃, SO₂ and CO</span></button>
+      <button data-go="preview"><b>Preview any AQI</b><span>See the tree at any level</span></button></div>`;
+    body.querySelectorAll('button').forEach(b=>b.onclick=()=>{rState=b.dataset.go;renderRight();});
+  } else if(rState==='advice'){
+    const t = TYPES.find(x=>x.id===currentType);
+    body.innerHTML = `<div class="tabs" role="group" aria-label="Who is this for">${TYPES.map(x=>`<button class="chipbtn" data-t="${x.id}" aria-pressed="${x.id===currentType}">${esc(x.label)}</button>`).join('')}</div>
+      <div class="adhead"><span class="dot" style="background:${L.color}"></span>${esc(t.label)}: ${esc(L.name.toLowerCase())} air</div>
+      <ul class="tips">${ADVICE[currentType][Math.min(lv,4)].map(x=>`<li>${esc(x)}</li>`).join('')}</ul>
+      <p class="fine">General guidance only, not medical advice.</p>`;
+    body.querySelectorAll('button').forEach(b=>b.onclick=()=>{currentType=b.dataset.t;renderRight();});
+  } else if(rState==='trend'){
+    if(!live||!live.daily){ body.innerHTML='<p class="note">Search for a place to see its trend.</p>'; return; }
+    const daily=live.daily, max=Math.max(200,...daily.map(x=>x.v));
+    let txt='';
+    const ti=daily.findIndex(x=>x.kind==='today');
+    if(ti>0){ const df=Math.round(daily[ti].v-daily[ti-1].v); txt = df===0?'About the same as yesterday.':`Today’s average is ${Math.abs(df)} points ${df>0?'higher (worse)':'lower (better)'} than yesterday.`; }
+    body.innerHTML = `<p class="note">${esc(live.label)}. Striped bars are forecasts.</p><div class="bars">${daily.map(x=>{
+      const c=LEVELS[levelOf(x.v)].color;
+      return `<div class="bar ${x.kind}"><div class="v">${Math.round(x.v)}</div><div class="col ${x.kind==='future'?'fc':''}" style="height:${Math.max(4,x.v/max*70)}%;background:${c}"></div><div class="l">${esc(x.label)}<br>${x.kind==='today'?'Today':x.kind==='past'?'Past':'Forecast'}</div></div>`;}).join('')}</div><p class="note" style="margin-top:14px;font-weight:800;color:#fff">${esc(txt)}</p>`;
+  } else if(rState==='polls'){
+    if(!live||!live.pol){ body.innerHTML='<p class="note">Search for a place to see its pollutants.</p>'; return; }
+    body.innerHTML = `<p class="note">Current levels in µg/m³ for ${esc(live.label)}. The main pollutant is the one furthest above its health guideline, estimated roughly.</p><div class="polls">${Object.keys(POLL_NAMES).map(k=>{
+      const v=live.pol[k]; return `<div class="poll ${k===live.main?'main':''}"><span>${POLL_NAMES[k]}</span><b>${v==null?'–':Math.round(v)}</b>${k===live.main?'<em>Main pollutant</em>':''}</div>`;}).join('')}</div>`;
+  } else if(rState==='preview'){
+    const v = preview!==null?preview:Math.round(curAqi()/5)*5;
+    body.innerHTML = `<p class="note">Drag to see how the tree, the children and the fog react. Handy for presenting offline.</p>
+      <div class="slider"><input id="slider" type="range" min="0" max="400" step="5" value="${v}" aria-label="US AQI"><output id="sliderout">${v}</output></div>
+      <p class="fine">${preview!==null?'Preview is on. Use “Back to live” under the AQI number to return.':'Moving the slider switches the page to preview mode.'}</p>`;
+    $('slider').addEventListener('input',e=>{ preview=+e.target.value; $('sliderout').textContent=preview; renderAll({skipRight:true}); });
+  }
+}
+$('rback').onclick = ()=>{ rState='menu'; renderRight(); };
+$('live').onclick = ()=>{ preview=null; renderAll(); };
+
+/* ---- panel toggles ---- */
+function setPanel(side,open){
+  const p=$(side+'panel'), b=$(side+'btn');
+  if(open && matchMedia('(max-width:820px)').matches){ const o=side==='l'?'r':'l'; $(o+'panel').classList.remove('open'); $(o+'btn').setAttribute('aria-expanded','false'); }
+  p.classList.toggle('open',open); b.setAttribute('aria-expanded',String(open));
+}
+$('lbtn').onclick = ()=>setPanel('l',!$('lpanel').classList.contains('open'));
+$('rbtn').onclick = ()=>setPanel('r',!$('rpanel').classList.contains('open'));
+document.querySelectorAll('[data-close]').forEach(b=>b.onclick=()=>setPanel(b.dataset.close,false));
+addEventListener('keydown',e=>{ if(e.key==='Escape'){ setPanel('l',false); setPanel('r',false); closeList(); } });
+
+/* ================= data ================= */
+async function geocode(q){
+  const r = await fetch(`https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(q)}&count=8&language=en&format=json`);
+  if(!r.ok) throw new Error('geocode');
+  const d = await r.json(); return d.results||[];
+}
+const placeLabel = p => [p.name, p.admin1&&p.admin1!==p.name?p.admin1:null, p.country&&p.country!==p.name?p.country:null].filter(Boolean).join(', ');
+function placeKind(p){
+  if(['PCLI','PCLD','PCLIX'].includes(p.feature_code)) return 'Country';
+  if(p.feature_code==='ADM1') return 'State or region';
+  return p.admin1||'';
+}
+async function loadPlace(p){
+  const label = placeLabel(p);
+  preview = null;
+  setStatus('Loading air quality for '+label+'…');
+  try{
+    const url = `https://air-quality-api.open-meteo.com/v1/air-quality?latitude=${p.latitude}&longitude=${p.longitude}`+
+      `&current=us_aqi,pm10,pm2_5,carbon_monoxide,nitrogen_dioxide,sulphur_dioxide,ozone&hourly=us_aqi&past_days=3&forecast_days=3&timezone=auto`;
+    const r = await fetch(url); if(!r.ok) throw new Error('aq');
+    const d = await r.json(), c = d.current;
+    if(!c || c.us_aqi==null) throw new Error('nodata');
+    const byDay={};
+    d.hourly.time.forEach((t,i)=>{ const v=d.hourly.us_aqi[i]; if(v==null) return; (byDay[t.slice(0,10)]=byDay[t.slice(0,10)]||[]).push(v); });
+    const today=c.time.slice(0,10);
+    const daily=Object.keys(byDay).sort().map(k=>{
+      const arr=byDay[k], v=arr.reduce((x,y)=>x+y,0)/arr.length;
+      return {v,label:new Date(k+'T12:00:00').toLocaleDateString('en',{weekday:'short',day:'numeric'}),kind:k===today?'today':(k<today?'past':'future')};
+    });
+    const pol={pm2_5:c.pm2_5,pm10:c.pm10,nitrogen_dioxide:c.nitrogen_dioxide,ozone:c.ozone,sulphur_dioxide:c.sulphur_dioxide,carbon_monoxide:c.carbon_monoxide};
+    const kind=placeKind(p);
+    const note=(kind==='Country'||kind==='State or region')?'Reading for a central point of this '+(kind==='Country'?'country':'region')+'. Search a city for a local reading.':'';
+    live={aqi:c.us_aqi,label,main:mainPollutant(pol),pol,daily,note};
+    statusMsg=''; statusErr=false;
+    renderAll();
+  }catch(e){
+    setStatus(e.message==='nodata' ? 'No air quality data for '+label+'. Try a nearby larger city.' : 'Could not reach the air quality service. Check your connection, or use Options → Preview.', true);
+    if(!live) renderAll();
+  }
+}
+
+/* ================= search ================= */
+const input=$('q'), list=$('results');
+let items=[], active=-1, timer=null, quickMode=false;
+const QUICK=['Delhi','Mumbai','Beijing','London','Los Angeles','Reykjavik'];
+function closeList(){ list.classList.remove('show'); input.setAttribute('aria-expanded','false'); active=-1; }
+function showList(){
+  if(quickMode){
+    list.innerHTML = '<li class="empty">Try one of these, or type any place.</li>'+QUICK.map((q,i)=>`<li><button data-q="${i}">${esc(q)}</button></li>`).join('');
+    list.querySelectorAll('button').forEach(b=>b.onclick=async()=>{
+      try{ const r=await geocode(QUICK[+b.dataset.q]); if(r[0]) pick(r[0]); }catch(e){ setStatus('Search is unavailable. Check your connection.',true); }
+    });
+  } else if(!items.length){
+    list.innerHTML = '<li class="empty">No places found. Check the spelling.</li>';
+  } else {
+    list.innerHTML = items.map((p,i)=>`<li role="option"><button data-i="${i}" class="${i===active?'active':''}"><span>${esc(placeLabel(p))}</span><small>${esc(placeKind(p))}</small></button></li>`).join('');
+    list.querySelectorAll('button').forEach(b=>b.onclick=()=>pick(items[+b.dataset.i]));
+  }
+  list.classList.add('show'); input.setAttribute('aria-expanded','true');
+}
+function pick(p){ input.value=placeLabel(p); input.blur(); closeList(); loadPlace(p); }
+input.addEventListener('focus',()=>{ if(!input.value.trim()){ quickMode=true; showList(); } });
+input.addEventListener('input',()=>{
+  clearTimeout(timer);
+  const q=input.value.trim();
+  if(q.length<2){ if(!q){ quickMode=true; showList(); } else closeList(); return; }
+  quickMode=false;
+  timer=setTimeout(async()=>{ try{ items=await geocode(q); active=-1; showList(); }catch(e){ setStatus('Search is unavailable. Check your connection.',true); } },300);
+});
+input.addEventListener('keydown',e=>{
+  if(quickMode) return;
+  if(e.key==='ArrowDown'&&items.length){ active=(active+1)%items.length; showList(); e.preventDefault(); }
+  else if(e.key==='ArrowUp'&&items.length){ active=(active-1+items.length)%items.length; showList(); e.preventDefault(); }
+  else if(e.key==='Enter'){ const p=items[active>=0?active:0]; if(p){ pick(p); e.preventDefault(); } }
+});
+document.addEventListener('click',e=>{ if(!e.target.closest('#searchbox')) closeList(); });
+
+/* ================= start ================= */
+renderLeft();
+resizeFog();
+renderAll();
+requestAnimationFrame(tick);
+loadPlace({name:'Delhi',admin1:'Delhi',country:'India',latitude:28.6519,longitude:77.2361,feature_code:'PPLA'});
+</script>
+</body>
+</html>
